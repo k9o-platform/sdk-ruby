@@ -1,0 +1,25 @@
+# RBS signatures for the Kibo client core of client.crypto (BYOK and HYOK projects).
+
+module K9o
+  class KiboClientCore
+    EXCHANGE_TIMEOUT: String
+    CORE_FUNCTIONS: Array[Symbol]
+    PROVIDER_WIRE: Hash[Symbol, String]
+    SKEW_SECS: Integer
+    DEFAULT_DEADLINE_SECS: Integer
+
+    # +core+ responds to app_crypto_seal_blocking, app_crypto_open_blocking, acquire_kms_credential_blocking and
+    # core_capabilities (the generated KiboKmsRestFfi module does). +federated_token+ answers call(crypt, op) with a
+    # Crypto::FederatedToken.
+    def initialize: (provider: (:aws | :gcp | :azure | :vault), posture: (:byok | :hyok), key_ref: Hash[Symbol, untyped],
+                     federation: Hash[Symbol | String, untyped], expected_key_refs: Array[String], federated_token: untyped, core: untyped,
+                     ?project_id: String?, ?provider_config: Hash[Symbol | String, String?], ?exchange_deadline: Numeric,
+                     ?now: ^() -> Integer) -> void
+    def enforces_expected_key_refs?: () -> true
+    def encrypt: (String crypt, Array[Hash[Symbol, untyped]] items, **untyped options) -> Hash[String, Array[Hash[String, untyped]]]
+    def decrypt: (String crypt, Array[Hash[Symbol, untyped]] items, **untyped options) -> Hash[String, Array[Hash[String, untyped]]]
+    def rewrap: (String crypt, Array[Hash[Symbol, untyped]] items, **untyped options) -> Hash[String, Array[Hash[String, untyped]]]
+    def inspect: () -> String
+    def to_s: () -> String
+  end
+end

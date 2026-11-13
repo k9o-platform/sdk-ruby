@@ -1,0 +1,29 @@
+# RBS signatures for Moat, the local guard around a model call.
+
+module K9o
+  module Moat
+    REASONS: Array[Symbol]
+
+    # Raised when Moat refuses input or output. `reason` is :role_marker, :input_schema, :output_schema or :pii.
+    class Refusal < StandardError
+      attr_reader reason: Symbol
+      attr_reader detail: String
+      def initialize: (Symbol reason, String detail) -> void
+    end
+
+    class ConfigError < ArgumentError
+    end
+
+    class SchemaError < ConfigError
+    end
+
+    def self.new: (prompt: String, ?input_schema: Hash[String | Symbol, untyped]?, ?output_schema: Hash[String | Symbol, untyped]?, ?filters: Hash[Symbol | String, ^(String) -> untyped]?) -> Guard
+
+    class Guard
+      def initialize: (prompt: String, ?input_schema: Hash[String | Symbol, untyped]?, ?output_schema: Hash[String | Symbol, untyped]?, ?filters: Hash[Symbol | String, ^(String) -> untyped]?) -> void
+      def messages: (untyped untrusted_input) -> Array[{ role: String, content: String }]
+      def check_output: (untyped model_output) -> untyped
+      def prompt_sha256: () -> String
+    end
+  end
+end

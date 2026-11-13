@@ -1,0 +1,64 @@
+# RBS signatures for write approval, event triggers, schedules, vectors and end users.
+
+module K9o
+  # True when a single-record write sent with `require_approval` was queued (HTTP 202) instead of applied.
+  def self.queued_write?: (untyped result) -> bool
+
+  class FunctionTriggers
+    def initialize: (untyped config) -> void
+    def list: (String name) -> Envelope
+    def create: (String name, collection: String, events: Array[String | Symbol], ?filter: Hash[untyped, untyped]?, ?enabled: bool?, ?log_ok_invocations: bool?) -> Envelope
+    # Fields: events, filter (nil clears it), enabled, log_ok_invocations. At least one.
+    def update: (String name, String trigger_id, **untyped fields) -> Envelope
+    # data is nil (HTTP 204).
+    def delete: (String name, String trigger_id) -> Envelope
+  end
+
+  # Key custody (read-only). `data` holds mode, attached, provider, lastJob and hsm (nil when absent).
+  class Custody
+    def initialize: (untyped config) -> void
+    def status: () -> Envelope
+  end
+
+  class Schedules
+    def initialize: (untyped config) -> void
+    def list: (?status: (String | Symbol)?, ?function_name: String?, ?limit: Integer?, ?cursor: String?) -> Envelope
+    def get: (String id) -> Envelope
+    def create: (function_name: String, schedule_expression: String, ?schedule_timezone: String?, ?catchup_policy: (String | Symbol)?, ?collection: String?, ?enabled: bool?, ?log_ok_invocations: bool?) -> Envelope
+    # Fields: schedule_expression, schedule_timezone, catchup_policy, status, enabled, log_ok_invocations. At least one.
+    def update: (String id, **untyped fields) -> Envelope
+    # data is nil (HTTP 204).
+    def delete: (String id) -> Envelope
+    def runs: (String id, ?limit: Integer?, ?cursor: String?) -> Envelope
+    def run_now: (String id) -> Envelope
+  end
+
+  class Vectors
+    def initialize: (untyped config) -> void
+    # data is { "results" => [...], "collection" => String }; each result has id, score, _source, contentHash, text (nil when absent), metadata, model (nil) and chunk (nil).
+    def nearest: (String collection, Array[Numeric] query_vector, ?top_k: Integer?, ?min_score: Numeric?, ?metric: (String | Symbol)?, ?filters: Hash[String | Symbol, String | Numeric | bool]?) -> Envelope
+    # rows: Hashes with vector and _source; optional id, contentHash, text, metadata, subjectIds. A single row Hash is accepted. data is { "upserted" => Integer, "collection" => String }.
+    def upsert: (String collection, ?(Array[Hash[String | Symbol, untyped]] | Hash[String | Symbol, untyped])? rows, **untyped row) -> Envelope
+  end
+
+  class EndUsers
+    def initialize: (untyped config) -> void
+    attr_reader role_grants: EndUserRoleGrants
+    def list: (?status: (String | Symbol)?, ?q: String?, ?limit: Integer?, ?cursor: String?) -> Envelope
+    def get: (String id) -> Envelope
+  end
+
+  class EndUserRoleGrants
+    def initialize: (untyped config) -> void
+    # data is the Array of grants.
+    def list: (?end_user_id: String?) -> Envelope
+    # data is the grant.
+    def grant: (end_user_id: String, role: String) -> Envelope
+    # data is { "revoked" => bool, "revokedAt" => String? }.
+    def revoke: (String grant_id) -> Envelope
+  end
+
+  class K9oClient
+    attr_reader vectors: Vectors
+  end
+end

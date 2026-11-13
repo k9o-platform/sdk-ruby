@@ -1,0 +1,59 @@
+# RBS signatures for Rampart classification and receipt verification.
+
+module K9o
+  module Jcs
+    class Error < ArgumentError
+      attr_reader kind: Symbol
+      def initialize: (String message, ?Symbol kind) -> void
+    end
+
+    def self.canonicalize: (untyped value) -> String
+    def self.canonical_bytes: (untyped value) -> String
+  end
+
+  module Ed25519
+    def self.verify: (String public_key, String message, String signature) -> bool
+    def self.native?: () -> bool
+  end
+
+  class Rampart
+    RECEIPT_TYP: String
+    CLASSIFICATIONS: Array[String]
+    DEFAULT_CLOCK_SKEW: Integer
+    REASONS: Array[Symbol]
+
+    # Raised by verify_receipt. `reason` is one of REASONS: :malformed, :key_unknown, :alg, :typ, :signature,
+    # :issuer, :project_unknown, :project, :expired, :not_yet_valid, :input_hash.
+    class ReceiptRefusal < KError
+      attr_reader reason: Symbol
+      def initialize: (Symbol reason, String detail) -> void
+    end
+
+    class Verdict < Struct[untyped]
+      attr_accessor classification: String
+      attr_accessor risk_bp: Integer
+      attr_accessor confidence_bp: Integer
+      attr_accessor categories: Array[String]
+      attr_accessor project_id: String
+      attr_accessor calibration_version: String
+      attr_accessor input_sha256: String
+      attr_accessor issued_at: Time
+      attr_accessor expires_at: Time
+      attr_accessor kid: String
+      attr_accessor windows: Integer?
+    end
+
+    def initialize: (untyped config) -> void
+    # data: { "classification", "riskScore", "confidence", "categories", "calibrationVersion", "classificationReceipt", "projectId" }.
+    def classify: (Hash[String | Symbol, untyped] input, ?label: String?) -> Envelope
+    # data: { "keys" => [ { "kid", "kty", "crv", "x", ... } ], "issuer" => "<issuer>/rampart" }. Public: no credential is sent.
+    def jwks: () -> Envelope
+    # `receipt` is the Envelope classify returned (it carries the receipt and its projectId) or the bare receipt String.
+    def verify_receipt: ((Envelope | String) receipt, Hash[String | Symbol, untyped] input, ?key_set: (Hash[untyped, untyped] | Array[Hash[untyped, untyped]])?, ?issuer: String?, ?project_id: String?, ?clock_skew: Numeric, ?clock: (Time | Numeric | ^() -> (Time | Numeric))?) -> Verdict
+    def input_digest: (Hash[String | Symbol, untyped] input) -> String
+  end
+
+  class K9oClient
+    attr_reader rampart: Rampart
+  end
+end

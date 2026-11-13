@@ -1,0 +1,24 @@
+# RBS signatures for the error type raised by every call.
+
+module K9o
+  class KError < StandardError
+    attr_reader code: String
+    attr_reader context: Hash[untyped, untyped]
+    # Suggested next step as text, or nil.
+    attr_reader recommendation: String?
+    attr_reader status: Integer?
+    attr_reader request_id: String?
+    # Seconds the gateway asks the caller to wait before retrying, or nil.
+    attr_reader retry_after_sec: Numeric?
+    # The step-up challenge of a 401 K9O_STEP_UP_REQUIRED, or nil.
+    def step_up: () -> Keys::StepUpChallenge?
+
+    def initialize: (code: String, message: String, ?context: Hash[untyped, untyped], ?recommendation: String?, ?status: Integer?, ?request_id: String?, ?retry_after_sec: Numeric?) -> void
+    def with_recommendation: (String? rec) -> KError
+    def message: () -> String
+    def to_s: () -> String
+    def self.from_wire: (Hash[String, untyped] wire, Integer? status) -> KError
+    def self.recommendation_text: (untyped raw) -> String?
+    def self.retry_after: (untyped raw) -> Numeric?
+  end
+end
