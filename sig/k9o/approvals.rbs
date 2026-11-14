@@ -1,0 +1,71 @@
+# RBS signatures for `client.approvals`, `client.approval_policies` and `client.schema`.
+
+module K9o
+  module ApprovalChecks
+    def self.invalid: (String message, ?Hash[Symbol, untyped] context) -> KError
+    def self.check_limit: (untyped limit) -> void
+    def self.id_segment: (untyped value, String what) -> String
+    def self.reason!: (untyped reason) -> String
+    def self.predicate!: (untyped value, String field) -> Hash[untyped, untyped]
+    def self.enum!: (untyped value, Array[String] allowed, String field) -> String
+  end
+
+  class Approvals
+    attr_reader comments: ApprovalComments
+    def initialize: (untyped config) -> void
+    # One page, newest first. `limit` is 1 to 200 (default 50); pass `meta.cursor.next` back as `cursor`
+    # (nil on the last page).
+    def list: (?status: (String | Symbol)?, ?limit: Integer?, ?cursor: String?) -> Envelope
+    def get: (String id) -> Envelope
+    # `status` on the answer stays "pending_approval" while more approvers are needed.
+    def approve: (String id, ?reason: String?) -> Envelope
+    def reject: (String id, reason: String) -> Envelope
+    # HTTP 200 even when rows fail: `data["failed"]` is an Array of { "id", "code", "reason" } (empty when none).
+    # Compare `affectedIds` with what you intended.
+    def bulk: (action: (String | Symbol), criteria: Hash[(String | Symbol), untyped], ?reason: String?) -> Envelope
+  end
+
+  # `approvals.comments`. Posting needs a session (a personal access token alone is refused, K9O_RBAC_DENY).
+  class ApprovalComments
+    VISIBILITIES: Array[String]
+    BODY_MAX: Integer
+
+    # An Envelope whose data is the Array of comments, oldest first; `next_cursor` is nil on the last page.
+    # A comment is { "id", "caseId", "authorId", "visibility", "body", "createdAt" }.
+    class Page < Envelope
+      attr_reader next_cursor: String?
+      def initialize: (data: untyped, meta: Meta, ?next_cursor: String?) -> void
+    end
+
+    def initialize: (untyped config) -> void
+    # `body` is 1 to 4000 characters; `visibility` is "everyone" or "approvers_only", fixed once posted. HTTP 201.
+    def add: (String pending_id, body: String, visibility: (String | Symbol)) -> Envelope
+    # `limit` is 1 to 200 (default 50); pass `next_cursor` back as `cursor`.
+    def list: (String pending_id, ?limit: Integer?, ?cursor: String?) -> Page
+  end
+
+  class ApprovalPolicies
+    COLLECTION_RE: Regexp
+
+    def initialize: (untyped config) -> void
+    def list: () -> Envelope
+    def create: (collection: String, operation: (String | Symbol), action: (String | Symbol), predicate: Hash[(String | Symbol), untyped]) -> Envelope
+    def delete: (String id) -> Envelope
+  end
+
+  class SchemaCollections
+    def initialize: (untyped config) -> void
+    def list: (?limit: Integer?, ?cursor: String?) -> Envelope
+  end
+
+  class Schema
+    attr_reader collections: SchemaCollections
+    def initialize: (untyped config) -> void
+  end
+
+  class K9oClient
+    attr_reader approvals: Approvals
+    attr_reader approval_policies: ApprovalPolicies
+    attr_reader schema: Schema
+  end
+end

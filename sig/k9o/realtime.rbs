@@ -1,0 +1,34 @@
+# RBS signatures for `client.realtime`.
+
+module K9o
+  class Realtime
+    DEFAULT_RETRY_MS: Integer
+    SEEN_LIMIT: Integer
+
+    # Seconds without any bytes after which a connection is abandoned (default 45).
+    def self.idle_timeout: () -> Numeric
+    def self.idle_timeout=: (Numeric) -> Numeric
+    # Longest reconnect delay in seconds (default 30).
+    def self.max_backoff: () -> Numeric
+    def self.max_backoff=: (Numeric) -> Numeric
+    def self.sleeper: () -> ^(Numeric) -> void
+    def self.sleeper=: (^(Numeric) -> void) -> ^(Numeric) -> void
+
+    def initialize: (untyped config) -> void
+    # Yields { "topic", "eventType", "payload", "occurredAt", "eventId" }. Reconnects with `Last-Event-ID`, drops
+    # events already delivered, and calls `on_resync` with { "reason", "action" } when the position is lost.
+    def subscribe: (String topic, ?filter: Hash[untyped, untyped]?, ?on_resync: (^(Hash[String, untyped]) -> untyped)?) -> Enumerator[Hash[String, untyped], untyped]
+
+    # POST /@<slug>/realtime/replay: data is { "events", "nextCursor", "hasMore" } plus "resync" when the topic has no stored history.
+    def replay: (String topic, ?from_sequence: Integer?, ?until_sequence: Integer?, ?limit: Integer?) -> Envelope
+
+    module Topic
+      def self.collection: (String collection) -> String
+      def self.workflow_runs: () -> String
+      def self.query_executed: (String query_id) -> String
+      def self.dashboard_refresh: (String dashboard_id) -> String
+      def self.function_invocations: (String function_id) -> String
+      def self.audit_org: (String event_family) -> String
+    end
+  end
+end

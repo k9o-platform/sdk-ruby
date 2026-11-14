@@ -1,0 +1,125 @@
+# RBS signatures for `client.analytics` (datasets), `client.rollups` and `client.keys`.
+
+module K9o
+  class Download
+    attr_reader body: String
+    attr_reader content_type: String?
+    def initialize: (body: String, ?content_type: String?) -> void
+  end
+
+  class AnalyticsRollups
+    def initialize: (untyped config) -> void
+    def create: (String dataset_slug, slug: String, source: String, measures: Array[Hash[Symbol | String, untyped]], window_seconds: Integer,
+                 ?dimensions: Array[String]?, ?subject_field: String?, ?non_personal: bool?, ?reattest_interval_days: Integer?) -> Envelope
+    def list: (String dataset_slug) -> Envelope
+    def delete: (String dataset_slug, String rollup_id) -> Envelope
+    # People only: a service, workload or extension token gets 403 K9O_RBAC_DENY (reason human_only).
+    def reattest: (String dataset_slug, String rollup_id, ?reattest_interval_days: Integer?) -> Envelope
+  end
+
+  class AnalyticsSchedules
+    def initialize: (untyped config) -> void
+    def create: (String dataset_slug, from_collection: String, interval_seconds: Integer, ?reattest_interval_days: Integer?) -> Envelope
+    def list: (String dataset_slug) -> Envelope
+    def delete: (String dataset_slug, String schedule_id) -> Envelope
+    def reattest: (String dataset_slug, String schedule_id, ?reattest_interval_days: Integer?) -> Envelope
+  end
+
+  class Analytics
+    attr_reader rollups: AnalyticsRollups
+    attr_reader schedules: AnalyticsSchedules
+    def initialize: (untyped config) -> void
+    def list: () -> Envelope
+    def query: (String sql, Array[String] datasets) -> Envelope
+    def create: (String slug, display_name: String, columns: Array[Hash[Symbol | String, untyped]], residency_class: (String | Symbol),
+                 ?partition_by: Array[String]?, ?storage_target: Hash[Symbol | String, untyped]?) -> Envelope
+    def get: (String slug) -> Envelope
+    def delete: (String slug) -> Envelope
+    def materialize: (String slug, ?from_collection: String?, ?from_query: String?) -> Envelope
+    def read: (String slug, ?partition_filter: Hash[Symbol | String, untyped]?, ?cursor: String?, ?limit: Integer?) -> Envelope
+    def write: (String slug, (Array[Hash[Symbol | String, untyped]] | String) rows, ?on_error: (String | Symbol)?) -> Envelope
+    def upload: (String slug, (String | IO) data, format: (String | Symbol), ?filename: String, ?manifest: Hash[Symbol | String, untyped]?,
+                 ?dry_run: bool?, ?on_error: (String | Symbol)?, ?delimiter: String?, ?encoding: String?, ?has_header: bool?) -> Envelope
+    def download_original: (String slug) -> Download
+  end
+
+  class Rollups
+    def initialize: (untyped config) -> void
+    def list: () -> Envelope
+    def read: (String rollup_slug, ?from: (String | Time)?, ?to: (String | Time)?, ?dims: (Array[String] | String)?) -> Envelope
+    def subscribe: (String rollup_slug, ?from_sequence: Integer?, ?on_resync: (^(Hash[String, untyped]) -> untyped)?) -> Enumerator[Hash[String, untyped], untyped]
+  end
+
+  class Keys
+    STATUSES: Array[String]
+    def initialize: (untyped config) -> void
+    # data: { "items" => [key] } (not paged)
+    def list: (?status: (String | Symbol)?) -> Envelope
+    def get: (String key_id) -> Envelope
+    # data: { "keyId", "previousVersion", "newVersion", "status" => "rotated" }
+    # step_up: ^(StepUpChallenge, String, String) -> { method: String, proof: String }
+    def rotate: (String key_id, ?step_up: untyped, ?headers: Hash[String, String]?) -> Envelope
+
+    class StepUpChallenge < Struct[untyped]
+      attr_reader scope_set_root: String
+      attr_reader nonce: String
+      attr_reader min_tier: String?
+      attr_reader methods: Array[String]
+      attr_reader max_age_sec: Integer?
+      attr_reader single_use: bool?
+      attr_reader rp_id: String?
+    end
+  end
+
+  class Crypto
+    def initialize: (untyped config) -> void
+    def encrypt: (String crypt, Array[Hash[Symbol | String, untyped] | String] items) -> Envelope
+    def decrypt: (String crypt, Array[Hash[Symbol | String, untyped] | String] items) -> Envelope
+    def rewrap: (String crypt, Array[Hash[Symbol | String, untyped] | String] items) -> Envelope
+    def self.text: (Hash[String, untyped] item) -> String?
+    # Reads the project's custody mode; every encrypt does this first, with no cache.
+    def mode: () -> Mode
+    # Registers the Kibo client core (an object with encrypt, decrypt and rewrap); nil removes it.
+    def use_client_core: (untyped core) -> untyped
+    def self.check_expected_key_refs: (Array[String]? refs) -> Array[String]?
+    def self.key_ref_matches?: (String key_ref, Array[String] expected, provider: (:aws | :gcp | :azure | :vault)) -> bool
+
+    # Ask for a short-lived federated token for +op+ ("encrypt", "decrypt" or "rewrap") on +crypt+.
+    def federated_token: (String crypt, String op) -> FederatedToken
+
+    # Crypts: data is { "crypts" => [...] } (list) or one { "name", "status", "createdAt", "retiredAt" } Hash.
+    def crypts_list: () -> Envelope
+    def crypts_create: (String name) -> Envelope
+    def crypts_retire: (String name) -> Envelope
+
+    class Mode < Struct[untyped]
+      def custody_mode: () -> String?
+      def epoch: () -> String?
+    end
+
+    # +provider+ and +project_id+ are nil unless the gateway names them; they are only checked against configuration.
+    class FederatedToken < Struct[untyped]
+      attr_reader token: String
+      attr_reader expires_at: String
+      attr_reader issuer: String
+      attr_reader subject: String
+      attr_reader audience: String
+      attr_reader kid: String
+      attr_reader provider: String?
+      attr_reader project_id: String?
+    end
+  end
+
+  class Audit
+    # Yields { "auditEventId", "type", "actorType", "occurredAt", "outcome", "eventId" }.
+    def tail: (?types: (Array[String | Symbol] | String | Symbol)?, ?on_resync: (^(Hash[String, untyped]) -> untyped)?) -> Enumerator[Hash[String, untyped], untyped]
+    def replay: (?topic: String, ?after_audit_event_id: String?, ?from_sequence: Integer?, ?until_sequence: Integer?, ?limit: Integer?) -> Envelope
+  end
+
+  class K9oClient
+    attr_reader analytics: Analytics
+    attr_reader rollups: Rollups
+    attr_reader keys: Keys
+    attr_reader crypto: Crypto
+  end
+end

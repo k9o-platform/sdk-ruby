@@ -1,0 +1,54 @@
+# RBS signatures for `client.metadata`.
+
+module K9o
+  class Metadata
+    # An Envelope whose data is the Array of rows; `cursor` is the next page's cursor, or nil on the last page.
+    # A row is { "surface", "scope", "recordId" (collection) or "eventId" (telemetry), "metadata" => { column => value } }.
+    class Page < Envelope
+      def cursor: () -> String?
+    end
+
+    OPS: Array[String]
+    METRICS: Array[String]
+    SLICES: Array[String]
+    PREFIX: String
+    MAX_COLUMNS: Integer
+    MAX_LIMIT: Integer
+    TELEMETRY_FIELDS: Array[String]
+
+    attr_reader vectors: MetadataVectors
+    attr_reader index: MetadataIndex
+
+    def initialize: (untyped config) -> void
+    # surfaces: ["collection:posts"]; where: [{ field:, op:, value: }]; limit 1..1000; cursor only with one surface.
+    # Options may be keyword arguments or one Hash.
+    def filter: (?Hash[String | Symbol, untyped]? input, ?surfaces: Array[String], ?where: Array[Hash[String | Symbol, untyped]]?, ?limit: Integer?, ?cursor: String?) -> Page
+    # data is the whole updated record. Columns may be keyword arguments or one Hash.
+    def set: (String | Symbol collection, String id, ?Hash[String | Symbol, untyped]? columns, **untyped extra) -> Envelope
+    def search: (?Hash[String | Symbol, untyped]? input, ?surface: String, ?field: String | Symbol, ?q: String, ?limit: Integer?) -> Page
+    # Yields { "topic", "eventType", "payload" => { "collection", "id" }, "occurredAt", "eventId"? }.
+    def subscribe: (String surface, ?Hash[String | Symbol, untyped]? input, ?from_sequence: Integer?, ?fromSequence: Integer?, ?on_resync: (^(Hash[String, untyped]) -> untyped)?) -> Enumerator[Hash[String, untyped], untyped]
+  end
+
+  class MetadataVectors
+    def initialize: (untyped config) -> void
+    # Rows carry no score; at most 50 rows come back whatever k is.
+    def nearest: (?Hash[String | Symbol, untyped]? input, ?surface: String, ?column: String | Symbol, ?embedding: Array[Numeric], ?k: Integer?, ?metric: (String | Symbol)?, ?where: Array[Hash[String | Symbol, untyped]]?) -> Metadata::Page
+  end
+
+  class MetadataIndex
+    def initialize: (untyped config) -> void
+    # data is { "collection" => String, "columns" => [{ "column" => String, "indexed" => bool }] }.
+    def get: (String | Symbol collection) -> Envelope
+    def declare: (String | Symbol collection, Array[Hash[String | Symbol, untyped]] columns) -> Envelope
+  end
+
+  class Realtime
+    # The reconnecting reader behind subscribe; initial_query applies to the first connection only.
+    def feed: (String route, Hash[String, untyped] q, Hash[String, untyped]? initial_query, (^(Hash[String, untyped]) -> untyped)? on_resync) -> Enumerator[Hash[String, untyped], untyped]
+  end
+
+  class K9oClient
+    attr_reader metadata: Metadata
+  end
+end
